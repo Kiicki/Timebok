@@ -238,11 +238,6 @@
     ]);
   }
 
-  function formatRange(a, b) {
-    const fmt = (d) => d.getDate() + '. ' + t('month.' + d.getMonth());
-    return fmt(a) + ' – ' + fmt(b) + ' ' + b.getFullYear();
-  }
-
   // Compact range — kept short enough to fit in the topbar without ellipsis.
   // Year is omitted when current; month names switch to 3-letter abbreviations
   // when the range spans two months (then a year transition).
@@ -263,9 +258,7 @@
     return a.getDate() + '. ' + t('month.short.' + mA) + ' ' + yA + ' – ' + b.getDate() + '. ' + t('month.short.' + mB) + ' ' + yB;
   }
 
-  function goToWeekOf(date) { cursor = startOfWeek(date); }
-
   global.Timebok = global.Timebok || {};
   global.Timebok.views = global.Timebok.views || {};
-  global.Timebok.views.week = { renderWeek, goToWeekOf };
+  global.Timebok.views.week = { renderWeek };
 })(window);

@@ -49,11 +49,6 @@
     };
   }
 
-  // Project no longer has its own timer — every paid hour comes from a code
-  // entry (Ordinære timer, Overtid, Kurs, Ferie, …). Kept as a stub so any
-  // external caller still works; returns 0.
-  function calcWorkHours() { return 0; }
-
   function calcRegistration(reg, profile, rates) {
     migrateLegacyHours(reg);
     const r = normalizeRates(rates, profile);
@@ -405,7 +400,7 @@
 
   global.Timebok = global.Timebok || {};
   global.Timebok.calc = {
-    normalizeRates, calcWorkHours, calcRegistration, calcDayTravel, groupByDate, aggregate, sumDayReceipts,
-    migrateLegacyHours, toNOK, FX_TO_NOK,
+    normalizeRates, calcRegistration, calcDayTravel, groupByDate, aggregate, sumDayReceipts,
+    migrateLegacyHours, toNOK,
   };
 })(window);

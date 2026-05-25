@@ -12,9 +12,8 @@
   const { CODES, getCode, isTravelZoneCode, travelZoneCodeId, TRAVEL_ZONES, resolveCodeName } = global.Timebok.codes;
   const { refreshGlobal } = global.Timebok.state;
   const { calcRegistration, calcDayTravel, sumDayReceipts } = global.Timebok.calc;
-  const { fromISODate, toISODate, addDays, formatHours, formatMoney, sameDay, parseNum, displayNum, diffMinutes } = global.Timebok.dateUtils;
+  const { fromISODate, toISODate, addDays, formatHours, formatMoney, sameDay, parseNum, displayNum } = global.Timebok.dateUtils;
   const { navigate } = global.Timebok.router;
-  const { openMinutesPicker, openHoursPicker } = global.Timebok.wheelPicker;
   const { openClockPicker } = global.Timebok.clockPicker;
   const openTimePicker = openClockPicker;
   function setTopbar(opts) { global.Timebok.chrome.setTopbar(opts); }
@@ -303,7 +302,6 @@
     function isDraftSaveable(d) {
       return validateDraft(d) === null;
     }
-    function flashSaved() { /* feedback now lives in the save button label */ }
 
     // Cards call this from onUpdate — just marks dirty, no auto-save.
     cardsContainer._markDirty = markDirty;
@@ -410,13 +408,6 @@
       location.hash = targetHash;
     };
     window.addEventListener('hashchange', onHashChange);
-  }
-
-  function totalItem(value, label) {
-    return el('div', { class: 'summary-item' }, [
-      el('span', { class: 'summary-label' }, label),
-      el('span', { class: 'summary-value', style: { fontSize: '18px' } }, value),
-    ]);
   }
 
   // ---- One registration card (editable) ----
@@ -1062,11 +1053,6 @@
       openModal(panel);
       setTimeout(() => nameIn.focus(), 0);
     });
-  }
-
-  function formatDateHeader(iso) {
-    const d = fromISODate(iso);
-    return t('weekday.' + d.getDay()) + ' ' + d.getDate() + '. ' + t('month.' + d.getMonth()) + ' ' + d.getFullYear();
   }
 
   global.Timebok = global.Timebok || {};

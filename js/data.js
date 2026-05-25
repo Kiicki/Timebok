@@ -113,18 +113,10 @@
     },
 
     async signIn(email, password) {
-      if (mode === 'firebase') {
-        try {
-          await fb.auth.signInWithEmailAndPassword(email, password);
-        } catch (e) {
-          if (e.code === 'auth/user-not-found' && email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
-            await fb.auth.createUserWithEmailAndPassword(email, password);
-          } else {
-            throw e;
-          }
-        }
-        return;
-      }
+      // Local-mode only. Firebase uses signInWithGoogle() exclusively — adding
+      // an email/password path here would let anyone create a Firebase admin
+      // account simply by signing in with ADMIN_EMAIL.
+      if (mode === 'firebase') throw new Error('Use signInWithGoogle in Firebase mode');
       const isAdmin = email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
       const id = 'local-' + btoa(email).replace(/=+$/, '');
       currentUser = { id, email };

@@ -5,7 +5,6 @@
   let started = false;
 
   function route(path, handler) { routes.set(path, handler); }
-  function setDefault(path) { defaultRoute = path; }
 
   function navigate(path) {
     if (location.hash !== '#' + path) location.hash = path;
@@ -52,5 +51,5 @@
   }
 
   global.Timebok = global.Timebok || {};
-  global.Timebok.router = { route, setDefault, navigate, start, currentPath };
+  global.Timebok.router = { route, navigate, start, currentPath };
 })(window);

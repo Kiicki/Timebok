@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'timebok-v1';
+const CACHE_VERSION = 'timebok-v2';
 const CORE_ASSETS = [
   './',
   './index.html',
@@ -13,6 +13,8 @@ const CORE_ASSETS = [
   './js/codes.js',
   './js/utils/date.js',
   './js/utils/dom.js',
+  './js/utils/wheel-picker.js',
+  './js/utils/clock-picker.js',
   './js/views/login.js',
   './js/views/week.js',
   './js/views/day.js',

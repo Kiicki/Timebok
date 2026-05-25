@@ -84,7 +84,6 @@
     // Vil bruker se andre stilens tall: bytt i Profil. Stilen vises som en
     // badge over totalene så det er tydelig hvilke regler som brukes.
     const currentStyle = (getState().profile && getState().profile.companyStyle) || 'firesafe';
-    const styleLabel = currentStyle === 'damsgard' ? 'Damsgård' : 'Firesafe';
 
     const [defaultFrom, defaultTo] = payPeriodForStyle(currentStyle);
     const fromField = dateField(toISODate(defaultFrom));
