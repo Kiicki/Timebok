@@ -1,0 +1,32 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Kvitteringer lagres som receipts/{userId}/{timestamp}_{filename}
+    // (se js/data.js → storage.uploadReceipt). Eier (og admin) har lese-
+    // og skrivetilgang til sine egne kvitteringer; ingen andre.
+    match /receipts/{userId}/{fileName} {
+      // Hjelpere må defineres inne i match-blokken siden Storage-rules ikke
+      // har "shared functions" på toppnivå slik Firestore har.
+      function isSignedIn() {
+        return request.auth != null;
+      }
+      function isOwner() {
+        return isSignedIn() && request.auth.uid == userId;
+      }
+
+      // Read: kun eier. (Admin-brukere ser sine egne uansett — vi støtter
+      // ikke admin-leser-andres-kvitteringer i app-en akkurat nå.)
+      allow read: if isOwner();
+
+      // Write: kun eier, kun bilder eller PDF, maks 10 MB.
+      // Delete: kun eier (matcher samme regel).
+      allow write: if isOwner()
+        && request.resource != null
+        && request.resource.size < 10 * 1024 * 1024
+        && (
+          request.resource.contentType.matches('image/.*') ||
+          request.resource.contentType == 'application/pdf'
+        );
+    }
+  }
+}
