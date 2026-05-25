@@ -1,6 +1,6 @@
 (function (global) {
   const { el, mount } = global.Timebok.dom;
-  const { t, getLang, setLang } = global.Timebok.i18n;
+  const { t } = global.Timebok.i18n;
   const { auth, getMode } = global.Timebok.data;
 
   function renderLogin() {
@@ -9,12 +9,6 @@
     document.getElementById('drawer').hidden = true;
 
     const errBox = el('div', { class: 'small', style: { color: 'var(--c-danger)', marginBottom: '8px', minHeight: '18px' } });
-    const langSel = el('select', { class: 'lang-select', style: { width: '100%' } }, [
-      el('option', { value: 'nb' }, 'Norsk'),
-      el('option', { value: 'en' }, 'English'),
-    ]);
-    langSel.value = getLang();
-    langSel.addEventListener('change', () => { setLang(langSel.value); renderLogin(); });
 
     async function handleSignIn(method) {
       errBox.textContent = '';
@@ -54,10 +48,6 @@
           el('p', {}, t('login.subtitle')),
         ]),
         oauthSection,
-        el('div', { class: 'mt-4', style: { display: 'flex', alignItems: 'center', gap: '8px' } }, [
-          el('label', { class: 'small muted', style: { flex: '1' } }, 'Språk / Language'),
-          langSel,
-        ]),
         getMode() === 'local'
           ? el('div', { class: 'mt-3', style: { borderTop: '1px dashed var(--c-border)', paddingTop: '16px' } }, [
               el('p', { class: 'small muted', style: { textAlign: 'center', margin: '0 0 8px' } }, t('login.localMode')),
