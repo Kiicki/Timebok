@@ -1,0 +1,45 @@
+name: Deploy site
+
+# Workflow-navn vises i Actions-tabben. Når name (på hver kjøring) ikke
+# er satt, defaulter GitHub til commit-meldingen — slik at "test" vises
+# som "test" istedenfor "pages build and deployment".
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # gjør "Run workflow"-knappen tilgjengelig i Actions-tabben
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Bare én deploy om gangen. Cancel ikke en pågående — vent til den er
+# ferdig før neste starter (sikrere for live-siden).
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        # Pakker hele repo-roten som artifact. For ren HTML/CSS/JS er
+        # det ingen build-step nødvendig.
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
