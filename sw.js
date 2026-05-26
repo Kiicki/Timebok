@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'timebok-v25';
+const CACHE_VERSION = 'timebok-v26';
 const CORE_ASSETS = [
   './',
   './index.html',

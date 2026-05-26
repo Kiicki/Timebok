@@ -174,20 +174,31 @@
 
   (async function boot() {
     setupChrome();
-    await initData();
 
+    // Registrer auth-handler FØR initData så Firebase sin første auth-event
+    // ikke kommer før vi lytter. Og IKKE kall startRouter() ved boot —
+    // det gjør at requireAuth treffer en tom state.user → renderLogin →
+    // re-render når auth-state lastes, dvs. login flasher i 1-2 sekunder.
+    // I stedet venter vi til auth-handler kjenner brukerens tilstand før
+    // første route håndteres.
     auth.onChange(async (user) => {
       await loadAll(user);
       updateDrawer();
       if (!user) {
         renderLogin();
-      } else {
-        const path = currentPath();
-        if (path === '/login' || !location.hash) navigate('/week');
-        else startRouter();
+        return;
       }
+      // Hvis brukeren havnet på /login eller har tom hash, send til /week.
+      // history.replaceState skifter hashen UTEN å fyre hashchange-event'en,
+      // så startRouter() under leser den oppdaterte hashen og rendrer riktig
+      // i én ren operasjon (uten flash).
+      const path = currentPath();
+      if (path === '/login' || !location.hash) {
+        history.replaceState(null, '', '#/week');
+      }
+      startRouter();
     });
 
-    startRouter();
+    await initData(); // Trigger første auth-event mot vår handler.
   })();
 })(window);
