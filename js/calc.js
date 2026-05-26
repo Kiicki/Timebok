@@ -1,6 +1,6 @@
 // Calculation engine for registrations, wages, and travel compensation.
 (function (global) {
-  const { getCode, isTravelZoneCode, travelZoneCodeId, DEFAULT_TRAVEL_RATES, DEFAULT_KM_RATE, DEFAULT_FIXED_CODE_RATES, resolveCodeFlags, resolveWageFactor, resolveCodeIsOrg, resolveCodePremiumPct, resolveOrgPremiumAddOn, resolveCodeName } = global.Timebok.codes;
+  const { getCode, isTravelZoneCode, travelZoneCodeId, DEFAULT_TRAVEL_RATES, DEFAULT_KM_RATE, DEFAULT_FIXED_CODE_RATES, resolveCodeFlags, resolveWageFactor, resolveCodeIsOrg, resolveCodePremiumPct, resolveOvertidsgrunnlag, resolveCodeName } = global.Timebok.codes;
   const { diffMinutes } = global.Timebok.dateUtils;
 
   // Idempotent in-memory migration of legacy registrations that stored hours
@@ -32,13 +32,17 @@
   }
 
   function normalizeRates(rates, profile) {
-    // Per-style travel rates (Firesafe vs Damsgård may have different prices).
-    // Resolution order: rates.travelRatesByStyle[style] → legacy rates.travelRates
-    // → DEFAULT_TRAVEL_RATES. Profile decides the active style; defaults to
-    // firesafe when no profile is provided.
+    // Travel rates er felles for begge bedrifts-stiler. Stilen styrer kun
+    // hvordan satsene aggregeres per dag (Firesafe: første+siste×0,5;
+    // Damsgård: høyeste×1) i calcDayTravel/calcDayZoneEntries, ikke verdiene.
+    //
+    // Resolution order: rates.travelRates → legacy rates.travelRatesByStyle
+    // (én-gangs migrering hvis admin ikke har lagret siden vi fjernet stil-
+    // toggle) → DEFAULT_TRAVEL_RATES.
     const style = (profile && profile.companyStyle) || 'firesafe';
-    const byStyle = rates && rates.travelRatesByStyle && rates.travelRatesByStyle[style];
-    const tr = byStyle || (rates && rates.travelRates) || {};
+    const legacyByStyle = rates && rates.travelRatesByStyle
+      && (rates.travelRatesByStyle[style] || rates.travelRatesByStyle.firesafe || rates.travelRatesByStyle.damsgard);
+    const tr = (rates && rates.travelRates) || legacyByStyle || {};
     return {
       kmRate: (rates && rates.kmRate != null) ? rates.kmRate : DEFAULT_KM_RATE,
       travelRates: {
@@ -82,13 +86,20 @@
         hours = Number(c.hours) || 0;
         let isOvertime;
         if (def.premium) {
-          // Per OT-time: timelønn × (1 + premiumPct) + (org ? premiumPct × orgAddOn : 0).
-          // Org-tillegget skalerer med premie-% — admin lagrer "per 100% OT"
-          // (f.eks. 12,31) → OT-50 Org = 6,155, OT-100 Org = 12,31.
+          // Per OT-time:
+          //   Org:     timelønn + overtidsgrunnlag × premie-%
+          //   Ikke-org: timelønn × (1 + premie-%)
+          //
+          // Eks. med timelønn 320 og grunnlag 332,31:
+          //   OT-50 Org   → 320 + 332,31 × 0,5 = 486,155 kr/t
+          //   OT-100 Org  → 320 + 332,31 × 1,0 = 652,31 kr/t
+          //   OT-50       → 320 × 1,5          = 480 kr/t
+          //   OT-100      → 320 × 2,0          = 640 kr/t
           const premiumPct = resolveCodePremiumPct(def.id, rates);
           const isOrg = resolveCodeIsOrg(def.id, rates);
-          const orgAddOn = isOrg ? premiumPct * resolveOrgPremiumAddOn(rates) : 0;
-          const perHour = hourlyRate * (1 + premiumPct) + orgAddOn;
+          const perHour = isOrg
+            ? hourlyRate + resolveOvertidsgrunnlag(rates) * premiumPct
+            : hourlyRate * (1 + premiumPct);
           amount = hours * perHour;
           isOvertime = premiumPct > 0;
         } else {
@@ -255,23 +266,54 @@
     return map;
   }
 
-  // aggregate(regs, profile, rates, dayReceipts?, opts?)
+  // Slå opp tariff-versjonen som gjelder for en gitt dato. Lista er sortert
+  // NYESTE først (validFrom desc), så første treff med validFrom <= dato er
+  // riktig versjon. Fallback: eldste tariff hvis datoen er før alle versjoner.
+  function resolveTariffForDate(tariffs, dateISO) {
+    if (!Array.isArray(tariffs) || tariffs.length === 0) return {};
+    for (const t of tariffs) {
+      if (!t.validFrom || String(t.validFrom) <= String(dateISO)) return t;
+    }
+    return tariffs[tariffs.length - 1];
+  }
+
+  // Aksepter enten en tariff-liste eller en enkelt rates-objekt for bakover-
+  // kompatibilitet. En liste detekteres via Array.isArray.
+  function ratesFor(ratesOrTariffs, dateISO) {
+    if (Array.isArray(ratesOrTariffs)) {
+      return resolveTariffForDate(ratesOrTariffs, dateISO);
+    }
+    return ratesOrTariffs || {};
+  }
+
+  // aggregate(regs, profile, ratesOrTariffs, dayReceipts?, opts?)
+  // ratesOrTariffs: enten en tariff-liste (foretrukket) eller et enkelt
+  //   rates-objekt (for bakover-kompat). Når det er en liste resolves riktig
+  //   tariff per dag basert på registreringens dato.
   // dayReceipts: optional Map<dateISO, receipts[]> for day-level receipts.
   // opts.periodMonths: optional number of months in the period — used to
   //   apply monthlyInsurance (innberetningspliktig forsikring kr/mnd) which
   //   counts as Lønn + Skattbar but NOT in Feriepenger and NOT in actual
   //   payout. When omitted, no insurance is added.
-  function aggregate(regs, profile, rates, dayReceipts, opts) {
+  function aggregate(regs, profile, ratesOrTariffs, dayReceipts, opts) {
     const byDate = groupByDate(regs);
     let totalWage = 0;
     let totalTravel = 0;
     let totalReceipts = 0;
     let vacationPayBasis = 0;
     let taxableTotal = 0;
+    let vacationPayAccrued = 0;
+    let unionDues = 0;
     const hoursByType = { ordinary: 0, overtime: 0, other: 0 };
     const codeTotals = new Map();
 
-    for (const [, dayRegs] of byDate) {
+    for (const [date, dayRegs] of byDate) {
+      // Hver dag bruker den tariffen som var aktiv på den datoen — slik blir
+      // gamle registreringer alltid beregnet med tariffene som gjaldt da.
+      const rates = ratesFor(ratesOrTariffs, date);
+      const vacRate = (rates && rates.vacationPayRate != null) ? rates.vacationPayRate : 0.12;
+      const uniRate = (rates && rates.unionDuesRate != null) ? rates.unionDuesRate : 0.018;
+
       const dayTravel = calcDayTravel(dayRegs, profile, rates);
       totalTravel += dayTravel;
       // Travel reimbursements are typically NOT in vacation pay and NOT taxable.
@@ -294,7 +336,14 @@
 
           const flags = resolveCodeFlags(cb.codeId, rates);
           const amt = cb.amount || 0;
-          if (flags.vacationPay) vacationPayBasis += amt;
+          if (flags.vacationPay) {
+            vacationPayBasis += amt;
+            // Beregn opptjent feriepenger og fagforening per registrering med
+            // den tariffens prosent — slik blir tall korrekte selv om
+            // prosenten endres mellom tariff-versjoner i samme periode.
+            vacationPayAccrued += amt * vacRate;
+            unionDues += amt * uniRate;
+          }
           if (flags.taxable) taxableTotal += amt;
         }
       }
@@ -307,7 +356,11 @@
         if (!ze.codeId || ze.amount === 0) continue;
         const zFlags = resolveCodeFlags(ze.codeId, rates);
         if (zFlags.wage) totalWage += ze.amount;
-        if (zFlags.vacationPay) vacationPayBasis += ze.amount;
+        if (zFlags.vacationPay) {
+          vacationPayBasis += ze.amount;
+          vacationPayAccrued += ze.amount * vacRate;
+          unionDues += ze.amount * uniRate;
+        }
         if (zFlags.taxable) taxableTotal += ze.amount;
         const acc = codeTotals.get(ze.codeId) || { name: resolveCodeName(ze.codeId, rates), hours: 0, amount: 0, count: 0 };
         acc.amount += ze.amount;
@@ -324,13 +377,6 @@
     }
 
     const totalHours = hoursByType.ordinary + hoursByType.overtime + hoursByType.other;
-
-    // Derived totals — matches Visma payslip layout. Rates are sensible defaults
-    // (Norwegian fagforening / feriepenger normalt 12% / Fellesforbundet 1,8%);
-    // admin can override later if needed.
-    const vacationPayRate = (rates && rates.vacationPayRate != null) ? rates.vacationPayRate : 0.12;
-    const unionDuesRate = (rates && rates.unionDuesRate != null) ? rates.unionDuesRate : 0.018;
-    const monthlyInsurance = (rates && rates.monthlyInsurance != null) ? Number(rates.monthlyInsurance) : 99.33;
 
     // Insurance count = unique pay periods that actually have registrations.
     // Pay-period boundary depends on companyStyle (Firesafe 11–10, Damsgård
@@ -352,27 +398,62 @@
     // Backwards-compat: if caller explicitly passed periodMonths use that,
     // otherwise derive from data.
     const periodMonths = (opts && opts.periodMonths != null) ? Number(opts.periodMonths) : periodsWithData.size;
-    const insuranceTotal = monthlyInsurance * periodMonths;
+
+    // Forsikring per lønnsperiode: bruk tariffen som var aktiv den siste
+    // dagen i lønnsperioden. Defaults når ingen periode-data finnes.
+    let insuranceTotal = 0;
+    let displayInsuranceMonthly = 99.33;
+    if (periodsWithData.size > 0) {
+      const sortedPeriods = Array.from(periodsWithData).sort();
+      for (const pp of sortedPeriods) {
+        const [py, pm] = pp.split('-').map(Number);
+        // Lønnsperiode pp = py-pm starter på ppStart-dag i den måneden.
+        // Slutter på (ppStart-1) i neste måned. Bruk den siste dagen som
+        // peilepunkt for tariff-lookup.
+        const endY = pm === 12 ? py + 1 : py;
+        const endM = pm === 12 ? 1 : pm + 1;
+        const endDay = ppStart - 1;
+        const endIso = endY + '-' + String(endM).padStart(2, '0') + '-' + String(endDay).padStart(2, '0');
+        const rates = ratesFor(ratesOrTariffs, endIso);
+        const monthly = (rates && rates.monthlyInsurance != null) ? Number(rates.monthlyInsurance) : 99.33;
+        insuranceTotal += monthly;
+      }
+      const lastRates = ratesFor(ratesOrTariffs, sortedPeriods[sortedPeriods.length - 1] + '-28');
+      displayInsuranceMonthly = (lastRates && lastRates.monthlyInsurance != null) ? Number(lastRates.monthlyInsurance) : 99.33;
+    } else {
+      // Ingen data — bruk siste tariff i lista for display-verdier.
+      const fallback = Array.isArray(ratesOrTariffs) ? (ratesOrTariffs[0] || {}) : (ratesOrTariffs || {});
+      displayInsuranceMonthly = (fallback.monthlyInsurance != null) ? Number(fallback.monthlyInsurance) : 99.33;
+      insuranceTotal = displayInsuranceMonthly * periodMonths;
+    }
+
+    // Display-prosenter i totals-tabellen: vis NYESTE tariffs satser. Selve
+    // tallene over er regnet per-dag med rett tariff, men etiketten ("Feriepenger 12%")
+    // skal vise current rate så bruker vet hvilken sats som nå gjelder.
+    const displayTariff = Array.isArray(ratesOrTariffs) ? (ratesOrTariffs[0] || {}) : (ratesOrTariffs || {});
+    const vacationPayRate = (displayTariff.vacationPayRate != null) ? displayTariff.vacationPayRate : 0.12;
+    const unionDuesRate = (displayTariff.unionDuesRate != null) ? displayTariff.unionDuesRate : 0.018;
 
     // Insurance: admin flags decide which totals it joins (default Lønn ✓,
     // Skatt ✓, Ferie ✗, Reise ✗ — matches lønnsslipp). User can override
-    // via "Forsikring" rad i admin → 5 flagg.
-    const insFlags = resolveCodeFlags('rate.forsikring', rates);
+    // via "Forsikring" rad i admin → 5 flagg. Bruker siste tariff for flag.
+    const insFlags = resolveCodeFlags('rate.forsikring', displayTariff);
     const grossWithInsurance = totalWage + (insFlags.wage ? insuranceTotal : 0);
     const taxableWithInsurance = taxableTotal + (insFlags.taxable ? insuranceTotal : 0);
     const vacationPayBasisAdj = vacationPayBasis + (insFlags.vacationPay ? insuranceTotal : 0);
     const travelWithInsurance = totalTravel + (insFlags.travel ? insuranceTotal : 0);
 
-    // Fagforening regnes av feriepengegrunnlag (matcher Visma-lønnsslipp).
-    const vacationPayAccrued = vacationPayBasisAdj * vacationPayRate;
-    const unionDues = vacationPayBasisAdj * unionDuesRate;
+    if (insFlags.vacationPay && insuranceTotal > 0) {
+      vacationPayAccrued += insuranceTotal * vacationPayRate;
+      unionDues += insuranceTotal * unionDuesRate;
+    }
     const taxBasisAfterDues = Math.max(0, grossWithInsurance - unionDues);
 
     return {
       totalHours,
       totalWage: grossWithInsurance,
       totalWageWithoutInsurance: totalWage,
-      insuranceTotal, monthlyInsurance, periodMonths,
+      insuranceTotal, monthlyInsurance: displayInsuranceMonthly, periodMonths,
       totalTravel: travelWithInsurance, totalReceipts,
       vacationPayBasis: vacationPayBasisAdj, taxableTotal: taxableWithInsurance,
       vacationPayAccrued, vacationPayRate,
@@ -401,6 +482,6 @@
   global.Timebok = global.Timebok || {};
   global.Timebok.calc = {
     normalizeRates, calcRegistration, calcDayTravel, groupByDate, aggregate, sumDayReceipts,
-    migrateLegacyHours, toNOK,
+    migrateLegacyHours, toNOK, resolveTariffForDate,
   };
 })(window);

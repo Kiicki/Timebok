@@ -2,7 +2,12 @@
 // Falls back to localStorage so the app works from file:// with no setup.
 (function (global) {
   const cfg = global.TimebokConfig || {};
-  const FIREBASE_ENABLED = !!cfg.ENABLED;
+  // Firebase støtter ikke OAuth-popup over file:// — Google avviser med
+  // auth/unauthorized-domain. Når brukeren dobbeltklikker index.html lokalt
+  // (file://) tvinger vi lokal-modus så test-admin-knappen funker som
+  // dokumentert i README. Firebase-modus brukes som normalt på http(s)://.
+  const isFileProtocol = (global.location && global.location.protocol === 'file:');
+  const FIREBASE_ENABLED = !!cfg.ENABLED && !isFileProtocol;
   const ADMIN_EMAIL = cfg.ADMIN_EMAIL || '';
 
   const LS = {

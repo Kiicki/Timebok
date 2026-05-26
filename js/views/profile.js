@@ -2,7 +2,7 @@
   const { el, mount, toast } = global.Timebok.dom;
   const { t, getLang, setLang } = global.Timebok.i18n;
   const { db } = global.Timebok.data;
-  const { get: getState, refreshProfile, isAdmin } = global.Timebok.state;
+  const { get: getState, refreshProfile, isAdmin, getLatestTariff } = global.Timebok.state;
   const { parseNum, displayNum } = global.Timebok.dateUtils;
   const { CODES, isTravelZoneCode, resolveCodeName } = global.Timebok.codes;
   function setTopbar(opts) { global.Timebok.chrome.setTopbar(opts); }
@@ -30,7 +30,7 @@
   }
 
   const PURPOSE_OF = {
-    'ordinaere-timer': 'arbeid', 'ordinaere-timer-btb': 'arbeid',
+    'ordinaere-timer': 'arbeid',
     'overtid-50': 'arbeid', 'overtid-50-org': 'arbeid',
     'overtid-100': 'arbeid', 'overtid-100-org': 'arbeid',
     'reisetid': 'arbeid', 'akkordtimer': 'arbeid', 'kurs-oppl-mote': 'arbeid',
@@ -95,8 +95,10 @@
 
     // ---- Auto-fyll-tilleggskoder ----
     // Bygges som checkboxer gruppert etter purpose. Settes som
-    // profile.autoCodes når brukeren trykker Lagre.
-    const rates = (state.rates) || {};
+    // profile.autoCodes når brukeren trykker Lagre. Bruker nyeste tariffs
+    // navn for visning av kodene (siden vi viser et generelt valg, ikke
+    // datert).
+    const rates = getLatestTariff() || {};
     const currentAuto = Array.isArray(p.autoCodes) ? p.autoCodes : DEFAULT_AUTO_CODES;
     const autoSet = new Set(currentAuto);
     const autoCheckboxes = {};

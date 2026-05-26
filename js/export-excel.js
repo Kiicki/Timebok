@@ -1,7 +1,14 @@
 // Excel export — loads SheetJS via CDN <script> tag on first use.
 (function (global) {
-  const { calcRegistration, calcDayTravel, groupByDate } = global.Timebok.calc;
+  const { calcRegistration, calcDayTravel, groupByDate, resolveTariffForDate } = global.Timebok.calc;
   const { fromISODate, formatDateNo } = global.Timebok.dateUtils;
+
+  function ratesForDate(state, dateISO) {
+    if (state && Array.isArray(state.tariffs) && state.tariffs.length) {
+      return resolveTariffForDate(state.tariffs, dateISO);
+    }
+    return (state && state.rates) || {};
+  }
 
   let xlsxReady = null;
   function loadXlsx() {
@@ -32,13 +39,14 @@
     const dates = Array.from(byDate.keys()).sort();
     for (const d of dates) {
       const dayRegs = byDate.get(d);
-      const dayTravel = calcDayTravel(dayRegs, state.profile, state.rates);
+      const dayRates = ratesForDate(state, d);
+      const dayTravel = calcDayTravel(dayRegs, state.profile, dayRates);
       const dayRcs = dayReceipts ? (dayReceipts.get(d) || []) : [];
       let dayRcAmount = 0;
       for (const rc of dayRcs) dayRcAmount += Number(rc.amount) || 0;
       for (let i = 0; i < dayRegs.length; i++) {
         const r = dayRegs[i];
-        const c = calcRegistration(r, state.profile, state.rates);
+        const c = calcRegistration(r, state.profile, dayRates);
         const dateObj = fromISODate(r.date);
         const project = projectNameFor(r, state);
         let totalHours = 0;

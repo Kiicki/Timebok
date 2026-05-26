@@ -911,8 +911,7 @@ input:focus, select:focus, textarea:focus {
 .travel-flags-label {
   font-size: 13px; font-weight: 600;
 }
-.travel-flags-row .code-flags {
-  display: flex; gap: var(--space-3); flex-wrap: wrap;
+.travel-flags-row .flag-chips {
   padding-top: 6px;
   border-top: 1px dashed var(--c-border);
 }
@@ -939,84 +938,144 @@ input:focus, select:focus, textarea:focus {
   .travel-row { grid-template-columns: 1fr 76px 76px; }
 }
 
-.code-group { margin-bottom: var(--space-3); }
+/* ============================================================
+   ADMIN SATSER — modernisert layout
+   ============================================================
+   Hver kode-gruppe er en card med UPPERCASE-titel + intro. Inne
+   i card-en ligger rate-rader stacket vertikalt, separert av en
+   tynn divider — ingen nested mini-cards lenger.
+*/
+.code-group { margin-bottom: 14px; padding: 14px 16px; }
 .code-group:last-child { margin-bottom: 0; }
 .code-group-title {
-  font-size: 14px; font-weight: 700; color: var(--c-text);
-  letter-spacing: 0;
-  padding: 0 0 6px;
-  border-bottom: 1px solid var(--c-border);
-  margin: 0 0 8px;
+  font-size: 11px; font-weight: 700;
+  color: var(--c-text-muted);
+  text-transform: uppercase; letter-spacing: .06em;
+  margin: 0 0 4px;
+  padding: 0;
+  border-bottom: none;
 }
 .code-group-intro {
-  margin: 0 0 var(--space-2); font-size: 12px; line-height: 1.4;
+  margin: 0 0 8px;
+  font-size: 12px; line-height: 1.4; color: var(--c-text-muted);
 }
-.code-name-input {
-  width: 100%; min-height: 34px;
-  padding: 4px 8px; font-size: 14px; font-weight: 600;
-  border: 1px solid transparent; background: transparent;
-  border-radius: var(--radius-sm);
-  font-family: inherit; color: var(--c-text);
+.rate-rows {
+  display: flex; flex-direction: column;
 }
-.code-name-input:hover { border-color: var(--c-border); background: var(--c-surface); }
-.code-name-input:focus { outline: none; border-color: var(--c-primary); background: var(--c-surface); box-shadow: 0 0 0 2px var(--c-primary-soft); }
-.rate-rows { display: flex; flex-direction: column; gap: var(--space-2); }
+/* Når rate-rows følger en annen blokk (f.eks. reisegodtgjørelse-tabellen i
+   Reise-gruppen) — legg på en tydelig separator over så det er klart at
+   det er en ny seksjon innenfor samme card. */
+.rate-rows-after-block {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--c-border);
+}
+.rate-rows-after-block .rate-row:first-child {
+  border-top: none;
+  padding-top: 4px;
+}
 
-.rate-row-with-flags {
-  display: grid !important;
-  grid-template-areas:
-    "name name"
-    "info input"
-    "flags flags" !important;
-  grid-template-columns: 1fr 90px !important;
-  align-items: center !important;
-  gap: 6px 8px;
-}
-.rate-row-with-flags > .rate-row-name { grid-area: name; min-width: 0; width: 100%; }
-.rate-row-with-flags .rate-row-info { grid-area: info; min-width: 0; }
-.rate-row-with-flags .rate-row-input { grid-area: input; width: 90px; }
-.rate-row-with-flags .rate-row-input input { width: 100%; min-height: 36px; text-align: right; padding: 0 8px; }
-.rate-row-with-flags.rate-row-readonly { grid-template-areas: "name name" "info info" "flags flags" !important; }
-.rate-row-with-flags.rate-row-readonly .rate-row-info { padding-top: 2px; }
-.rate-row-with-flags .code-flags {
-  grid-area: flags;
-  display: flex; gap: 8px; flex-wrap: wrap;
-  padding-top: 6px; margin-top: 2px;
-  border-top: 1px dashed var(--c-border);
-}
-.code-flag {
-  display: inline-flex; align-items: center; gap: 4px;
-  font-size: 11px; color: var(--c-text-muted); font-weight: 600;
-  cursor: pointer; white-space: nowrap;
-}
-.code-flag input { width: 16px; height: 16px; margin: 0; flex: 0 0 16px; }
-.code-flag.is-disabled {
-  cursor: default;
-  opacity: .35;
-}
-.code-flag.is-disabled input { cursor: default; }
-
-@media (max-width: 380px) {
-  .rate-row-with-flags { grid-template-columns: 1fr 80px !important; }
-  .rate-row-with-flags .rate-row-input { width: 80px; }
-  .code-flag { font-size: 10px; }
-}
+/* Selve rate-raden — flat, ikke en mini-card. Skiller seg fra
+   neste rad med en subtil divider. */
 .rate-row {
-  display: grid; grid-template-columns: 1fr 110px; gap: var(--space-3);
-  align-items: center; padding: var(--space-2) var(--space-3);
-  background: var(--c-surface-2); border-radius: var(--radius);
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 10px 0;
+  border-top: 1px solid var(--c-border);
 }
-.rate-row-info { min-width: 0; }
+.rate-row:first-child { border-top: none; padding-top: 4px; }
+.rate-row:last-child { padding-bottom: 2px; }
+
+.rate-row-head {
+  display: flex; align-items: center; gap: 12px;
+  min-width: 0;
+}
 .rate-row-name {
-  font-weight: 600; font-size: 14px; line-height: 1.3;
-  overflow-wrap: break-word; word-break: normal; hyphens: none;
-  display: flex; align-items: center; gap: 4px; min-width: 0;
+  flex: 1; min-width: 0;
+  font-size: 14px; font-weight: 700; color: var(--c-text);
+  line-height: 1.3;
+  overflow-wrap: anywhere;
 }
-.rate-row-name .chip { flex: 0 0 auto; }
-.rate-row-name > input.code-name-input { flex: 1; min-width: 0; }
-.rate-row-unit { font-size: 11px; color: var(--c-text-muted); margin-top: 2px; line-height: 1.3; }
+.rate-row.is-readonly .rate-row-name { color: var(--c-text); }
+
+/* Verdi-blokken: input + suffix (kr/t, %, osv.) på samme linje. */
+.rate-row-value {
+  flex: 0 0 auto;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.rate-row-value input {
+  width: 80px; min-height: 36px;
+  padding: 0 10px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-size: 14px; font-weight: 600;
+}
+.rate-row-suffix {
+  font-size: 12px; font-weight: 600; color: var(--c-text-muted);
+}
+
+/* Read-only: formel-tekst (italic, muted) plassert under navnet. */
+.rate-row-formula {
+  font-size: 12px; font-style: italic;
+  color: var(--c-text-muted);
+  margin-top: -2px;
+}
+/* Beskrivelse for meta-rates (Feriepenger osv.). */
+.rate-row-desc {
+  font-size: 12px; color: var(--c-text-muted);
+  line-height: 1.35;
+  margin-top: -2px;
+}
+
+/* ---------- Flag-chips ---------- */
+/* Segmented-control-stil: 5 chips alltid like brede, fyller hele radbredden.
+   Gir visuell alignment med verdier i raden over (begge ender ved card-kant). */
+.flag-chips {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px;
+  margin-top: 8px;
+}
+.flag-chip {
+  position: relative;
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 6px 6px;
+  min-height: 30px;
+  font-size: 11px; font-weight: 700;
+  color: var(--c-text-muted);
+  background: var(--c-surface-2);
+  border: 1px solid var(--c-border);
+  border-radius: 999px;
+  cursor: pointer; user-select: none;
+  text-align: center; white-space: nowrap;
+  transition: background-color .12s ease, color .12s ease, border-color .12s ease;
+}
+/* Skjult checkbox — vi styler labelen i stedet. :has() lar oss vise
+   "på"-state uten ekstra JavaScript. */
+.flag-chip input {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+.flag-chip:has(input:checked) {
+  background: var(--c-primary-soft);
+  color: var(--c-primary);
+  border-color: var(--c-primary);
+}
+.flag-chip:hover:not(.is-disabled) { border-color: var(--c-primary-soft); }
+.flag-chip:focus-within { outline: 2px solid var(--c-primary); outline-offset: 1px; }
+.flag-chip.is-disabled {
+  opacity: 0.4; cursor: not-allowed;
+  pointer-events: none;
+}
+
 @media (max-width: 380px) {
-  .rate-row { grid-template-columns: 1fr 90px; }
+  .code-group { padding: 12px; }
+  .rate-row-value input { width: 70px; }
+  .flag-chip { padding: 4px 10px; font-size: 10px; min-height: 26px; }
 }
 
 /* ---------- Period view (mobile-friendly) ---------- */
@@ -1091,31 +1150,147 @@ input:focus, select:focus, textarea:focus {
   flex: 0 0 auto;
 }
 
-/* Segmented toggle (Firesafe / Damsgård in periode-view) */
-.style-toggle {
-  display: inline-flex;
-  width: 100%;
-  background: var(--c-surface-2);
+/* Tariff-velger over Satser-fanen i admin. Stacker label/select/badge
+   vertikalt så lange tariff-navn alltid får full bredde uten kutting. */
+.tariff-selector-wrap {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 12px; margin-bottom: 12px;
+  background: var(--c-surface-2); border-radius: var(--radius);
   border: 1px solid var(--c-border);
-  border-radius: 999px;
-  padding: 3px;
-  gap: 2px;
 }
-.style-toggle-btn {
-  flex: 1;
-  padding: 8px 12px;
-  border: none;
-  border-radius: 999px;
-  background: transparent;
-  font-size: 13px; font-weight: 700;
-  color: var(--c-text-muted); font-family: inherit;
-  cursor: pointer;
-  transition: background-color .15s ease, color .15s ease;
+.tariff-selector-label {
+  font-size: 11px; font-weight: 700; color: var(--c-text-muted);
+  text-transform: uppercase; letter-spacing: .05em;
+  margin-bottom: 2px;
 }
-.style-toggle-btn:hover { color: var(--c-text); }
-.style-toggle-btn.active {
-  background: var(--c-primary);
-  color: white;
+/* Tariff-picker — trigger-knapp som åpner en modal med listen. Brukes
+   modal i stedet for inline popup fordi modaler er konsekvente med resten
+   av app-en og lange tariff-navn kan wrappe pent. */
+.tariff-picker-trigger {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; min-width: 0;
+  padding: 10px 12px;
+  background: var(--c-surface); color: var(--c-text);
+  border: 1px solid var(--c-border); border-radius: var(--radius);
+  font-family: inherit; font-size: 13px; font-weight: 600;
+  text-align: left; cursor: pointer;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.tariff-picker-trigger:hover { border-color: var(--c-primary-soft); }
+.tariff-picker-trigger:focus { outline: none; border-color: var(--c-primary); box-shadow: 0 0 0 2px var(--c-primary-soft); }
+.tariff-picker-label {
+  flex: 1; min-width: 0;
+  white-space: normal; overflow-wrap: anywhere; line-height: 1.3;
+}
+.tariff-picker-caret {
+  flex: 0 0 auto;
+  font-size: 11px; color: var(--c-text-muted);
+}
+
+/* Modal-listen med tariff-valg. */
+.tariff-modal-list {
+  display: flex; flex-direction: column; gap: 6px;
+  max-height: 50vh; overflow-y: auto;
+  padding: 2px;
+  margin-bottom: 4px;
+}
+.tariff-modal-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  width: 100%; min-width: 0;
+  padding: 12px 14px;
+  background: var(--c-surface-2);
+  border: 1px solid transparent; border-radius: var(--radius);
+  font-family: inherit; text-align: left; cursor: pointer;
+  transition: background-color .12s ease, border-color .12s ease;
+}
+.tariff-modal-item:hover {
+  background: var(--c-primary-soft);
+  border-color: var(--c-primary-soft);
+}
+.tariff-modal-item.is-selected {
+  background: var(--c-primary-soft);
+  border-color: var(--c-primary);
+}
+.tariff-modal-item-main {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; gap: 2px;
+}
+.tariff-modal-item-name {
+  font-size: 14px; font-weight: 700; color: var(--c-text);
+  overflow-wrap: anywhere; line-height: 1.3;
+}
+.tariff-modal-item-meta {
+  font-size: 12px; color: var(--c-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.tariff-modal-item-note {
+  font-size: 11px; color: var(--c-text-muted);
+  font-style: italic;
+  margin-top: 2px;
+  overflow-wrap: anywhere;
+}
+.tariff-modal-item-badge {
+  flex: 0 0 auto;
+  font-size: 11px; font-weight: 700;
+  color: var(--c-success, #1f8a3f);
+  padding: 3px 8px;
+  background: var(--c-surface);
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  align-self: center;
+}
+.tariff-modal-item.is-imported { opacity: 0.65; }
+.tariff-modal-item.is-imported .tariff-modal-item-meta { font-style: italic; }
+.tariff-active-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 12px; font-weight: 600;
+  color: var(--c-success, #1f8a3f);
+  margin-top: 2px;
+}
+/* Når brukeren ser PÅ en annen tariff enn dagens aktive, vis badge som
+   en mild varsel i stedet for grønn bekreftelse. */
+.tariff-active-badge-other {
+  color: var(--c-text-muted);
+  font-weight: 500;
+}
+/* Tariff-knappene må få plass i én rad. Grid med equal-width kolonner
+   garanterer at alle holder seg på samme rad uavhengig av tekstlengde.
+   Når Slett er skjult (bare én tariff) blir det 3 kolonner i stedet. */
+.tariff-selector-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
+  grid-auto-flow: column;
+  gap: 6px; margin-top: 4px;
+}
+.tariff-selector-actions .btn {
+  padding-left: 6px; padding-right: 6px;
+  min-width: 0;
+  white-space: nowrap;
+}
+.tariff-delete-btn { color: var(--c-danger); }
+.tariff-selector-help { margin: 6px 0 0; }
+.tariff-modal-input { width: 100%; }
+/* Tariff-navn er en textarea som vokser med innholdet. Overstyrer default
+   textarea-stilen (80px min-height + manual resize) så den oppfører seg
+   som en utvidende én-linje-input med wrap. */
+textarea.tariff-name-input {
+  min-height: var(--tap);
+  padding: 10px 12px;
+  font-size: 15px;
+  line-height: 1.35;
+  resize: none;
+  overflow: hidden;
+  font-family: inherit;
+}
+
+/* Tariff-transparens — vises i Uke- og Periode-visning under tittelen
+   så bruker vet hvilken tariff(er) som styrte tallene. */
+.tariff-used-note {
+  font-size: 12px; color: var(--c-text-muted);
+  font-style: italic;
+  margin: 4px 0 8px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .period-header-card { display: flex; flex-direction: column; gap: 4px; }

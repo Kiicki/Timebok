@@ -1,7 +1,17 @@
 // PDF export — loads jsPDF via CDN <script> tag on first use.
 (function (global) {
-  const { calcRegistration, calcDayTravel, groupByDate } = global.Timebok.calc;
+  const { calcRegistration, calcDayTravel, groupByDate, resolveTariffForDate } = global.Timebok.calc;
   const { fromISODate, formatHours, formatMoney, formatDateNo } = global.Timebok.dateUtils;
+
+  // Eksport bruker tariff-versjonen som var aktiv på hver dag. state.tariffs
+  // er en array (nyeste først); fall tilbake til state.rates for evt. gammel
+  // kallekonvensjon (skal aldri trigges etter datert-tariff refaktor).
+  function ratesForDate(state, dateISO) {
+    if (state && Array.isArray(state.tariffs) && state.tariffs.length) {
+      return resolveTariffForDate(state.tariffs, dateISO);
+    }
+    return (state && state.rates) || {};
+  }
 
   let jsPDFReady = null;
   function loadJsPDF() {
@@ -57,10 +67,11 @@
     for (const d of sortedDates) {
       if (y > 760) { doc.addPage(); y = m; drawRow(doc, cols, cols.map((c) => c.label), m, y, true); y += 16; }
       const dayRegs = byDate.get(d) || [];
-      const dayTravel = calcDayTravel(dayRegs, state.profile, state.rates);
+      const dayRates = ratesForDate(state, d);
+      const dayTravel = calcDayTravel(dayRegs, state.profile, dayRates);
       let dayHours = 0, dayWage = 0, dayReceiptsTot = 0;
       for (const r of dayRegs) {
-        const c = calcRegistration(r, state.profile, state.rates);
+        const c = calcRegistration(r, state.profile, dayRates);
         for (const cb of c.codeBreakdown) if (cb.hours) dayHours += cb.hours;
         dayWage += c.wage;
         dayReceiptsTot += c.receipts;

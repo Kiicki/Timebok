@@ -30,13 +30,18 @@
 
   const DEFAULT_KM_RATE = 5.0;
 
-  // Tariff add-on (kr/t) per 100% overtid for Org-flagged codes. Scales
-  // with the code's premie-%: addon = premiumPct × value. So 12,31 here
-  // gives 6,155 for OT-50 Org (50%) and 12,31 for OT-100 Org (100%).
-  // Per OT-time: timelønn × (1 + premiumPct) + (org ? premiumPct × addOn : 0).
-  // OT-50 verified mot lønnsslipp; OT-100 er antatt fra samme tariff-tall
-  // (justeres i admin om det viser seg å stemme dårlig).
-  const DEFAULT_ORG_PREMIUM_ADDON = 12.31;
+  // Overtidsgrunnlag — tariff-definert kr/t-grunnlag som brukes som base
+  // for Org-overtid (i stedet for personlig timesats). For Org-OT-koder:
+  //
+  //   per time = timelønn + overtidsgrunnlag × premie-%
+  //
+  // Eksempel med timelønn 320 og grunnlag 332,31:
+  //   OT-50 Org  → 320 + 332,31 × 0,5 = 486,155 kr/t (tillegg = 166,155)
+  //   OT-100 Org → 320 + 332,31 × 1,0 = 652,31 kr/t (tillegg = 332,31)
+  //
+  // Ikke-org OT bruker fortsatt timelønn × (1 + premie-%) som vanlig.
+  // Admin kan justere grunnlaget hvis tariffen endres.
+  const DEFAULT_OVERTIDSGRUNNLAG = 332.31;
 
   const DEFAULT_FIXED_CODE_RATES = {
     'bastillegg': 10.00,
@@ -53,7 +58,6 @@
 
   const CODES = [
     { id: 'ordinaere-timer',              name: 'Ordinære timer',                       type: 'A', wageFactor: 1.0,  unit: 'hours' },
-    { id: 'ordinaere-timer-btb',          name: 'Ordinære timer (BTB)',                 type: 'A', wageFactor: 1.0,  unit: 'hours' },
     { id: 'overtid-50',                   name: 'Overtid 50%',                          type: 'A', unit: 'hours', premium: true, premiumPct: 0.5 },
     { id: 'overtid-50-org',               name: 'Overtid 50% (Org.)',                   type: 'A', unit: 'hours', premium: true, premiumPct: 0.5, org: true },
     { id: 'overtid-100',                  name: 'Overtid 100%',                         type: 'A', unit: 'hours', premium: true, premiumPct: 1.0 },
@@ -156,8 +160,8 @@
       // Trekk fra skattegrunnlag (fradragsberettiget).
       return { wage: false, vacationPay: false, taxable: true, travel: false };
     }
-    if (codeId === 'rate.orgaddon') {
-      // Org-tillegg er en del av OT-Org-lønn → Lønn + Ferie + Skatt.
+    if (codeId === 'rate.overtidsgrunnlag') {
+      // Overtidsgrunnlag inngår som del av Org-OT-lønn → Lønn + Ferie + Skatt.
       return { wage: true, vacationPay: true, taxable: true, travel: false };
     }
     const c = getCode(codeId);
@@ -239,13 +243,13 @@
       : baseDefault;
   }
 
-  // Org tariff add-on (kr/t) folded into OT-grunnlag for organized codes.
+  // Overtidsgrunnlag — tariff-base for Org-OT-koder (kr/t).
   // Whole-company setting — admin tunes once to match the tariff.
-  function resolveOrgPremiumAddOn(rates) {
-    const override = rates && rates.orgPremiumAddOn;
+  function resolveOvertidsgrunnlag(rates) {
+    const override = rates && rates.overtidsgrunnlag;
     return override != null && override !== '' && isFinite(Number(override))
       ? Number(override)
-      : DEFAULT_ORG_PREMIUM_ADDON;
+      : DEFAULT_OVERTIDSGRUNNLAG;
   }
 
   // Display name — admin can rename codes (e.g. shorten "Permisjon lønnet (Uorg.)"
@@ -290,9 +294,9 @@
     CODES, getCode, isTravelZoneCode, travelZoneCodeId,
     isSubstituteCode, hasSubstituteCode,
     TRAVEL_ZONES, TRAVEL_TRANSPORTS,
-    DEFAULT_TRAVEL_RATES, DEFAULT_KM_RATE, DEFAULT_FIXED_CODE_RATES, DEFAULT_ORG_PREMIUM_ADDON,
+    DEFAULT_TRAVEL_RATES, DEFAULT_KM_RATE, DEFAULT_FIXED_CODE_RATES, DEFAULT_OVERTIDSGRUNNLAG,
     defaultCodeFlags, resolveCodeFlags, resolveWageFactor,
-    resolveCodeIsOrg, resolveCodePremiumPct, resolveOrgPremiumAddOn,
+    resolveCodeIsOrg, resolveCodePremiumPct, resolveOvertidsgrunnlag,
     resolveCodeName, getCodeKind,
   };
 })(window);

@@ -2,7 +2,7 @@
   const { el, mount, toast, confirmModal } = global.Timebok.dom;
   const { t, getLang } = global.Timebok.i18n;
   const { db } = global.Timebok.data;
-  const { get: getState } = global.Timebok.state;
+  const { get: getState, getRatesForDate, listTariffsForDates } = global.Timebok.state;
   const { calcRegistration, calcDayTravel, aggregate, groupByDate, toNOK } = global.Timebok.calc;
   const {
     startOfWeek, endOfWeek, addDays, addWeeks, toISODate,
@@ -21,7 +21,7 @@
 
     const state = getState();
     const profile = state.profile;
-    const rates = state.rates;
+    const tariffs = state.tariffs;
 
     const weekStart = startOfWeek(cursor);
     const weekEnd = endOfWeek(cursor);
@@ -32,7 +32,7 @@
       db.listDayReceipts(state.user.id, { from, to }),
     ]);
     const byDate = groupByDate(regs);
-    const summary = aggregate(regs, profile, rates, dayReceipts);
+    const summary = aggregate(regs, profile, tariffs, dayReceipts);
 
     const lang = getLang();
     const today = new Date();
@@ -60,16 +60,30 @@
       const iso = toISODate(d);
       const dayRegs = byDate.get(iso) || [];
       const dayRcs = dayReceipts.get(iso) || [];
-      days.push(renderDayCard(d, dayRegs, dayRcs, profile, rates, lang, sameDay(d, today)));
+      const dayRates = getRatesForDate(iso);
+      days.push(renderDayCard(d, dayRegs, dayRcs, profile, dayRates, lang, sameDay(d, today)));
     }
 
     const profileStyle = (profile && profile.companyStyle) || 'firesafe';
     const styleLabel = profileStyle === 'damsgard' ? 'Damsgård' : 'Firesafe';
+
+    // Tariff-transparens: hvilke tariffer ble brukt for de 7 dagene i uka.
+    // Hvis uka krysser en tariff-grense (f.eks. mellomoppgjør 30.04) blir
+    // det to navn med "+" mellom. Hjelper bruker å verifisere mot lønnsslipp.
+    const weekDates = [];
+    for (let i = 0; i < 7; i++) weekDates.push(toISODate(addDays(weekStart, i)));
+    const tariffsUsed = listTariffsForDates(weekDates);
+    const tariffsLabel = tariffsUsed.length
+      ? tariffsUsed.map((t) => t.name || 'Uten navn').join(' + ')
+      : null;
+
     const summaryNode = el('div', { class: 'summary' }, [
       el('div', { class: 'card-head' }, [
         el('h3', { class: 'card-title' }, t('week.summary')),
         el('span', { class: 'totals-style-badge', title: 'Reisegodtgjørelse-stil fra profil — endre på Profilside' }, styleLabel),
       ]),
+      tariffsLabel ? el('div', { class: 'tariff-used-note' },
+        'Beregnet med: ' + tariffsLabel) : null,
       el('div', { class: 'summary-grid' }, [
         summaryItem(t('week.totalHours'), formatHours(summary.totalHours, lang) + ' ' + t('common.hours'),
           summary.hoursByType.overtime > 0
@@ -167,6 +181,7 @@
 
   function renderRegRow(reg, iso) {
     const state = getState();
+    const rates = getRatesForDate(reg.date || iso);
     const project = (state.projects || []).find((p) => p.id === reg.projectId);
     // projectName-resolution:
     //   - har projectId + finner prosjekt → bruk prosjektnavn
@@ -184,7 +199,7 @@
       projectName = 'Ingen prosjekt';
     }
     const lang = getLang();
-    const c = calcRegistration(reg, state.profile, state.rates);
+    const c = calcRegistration(reg, state.profile, rates);
     const hours = c.hoursByType.ordinary + c.hoursByType.overtime + c.hoursByType.other;
     const hoursStr = hours > 0 ? formatHours(hours, lang) + ' t' : '';
 

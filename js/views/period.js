@@ -2,7 +2,7 @@
   const { el, mount, toast } = global.Timebok.dom;
   const { t, getLang } = global.Timebok.i18n;
   const { db } = global.Timebok.data;
-  const { get: getState } = global.Timebok.state;
+  const { get: getState, getRatesForDate, listTariffsForDates } = global.Timebok.state;
   const { aggregate, calcRegistration, calcDayTravel, groupByDate, toNOK } = global.Timebok.calc;
   function setTopbar(opts) { global.Timebok.chrome.setTopbar(opts); }
   const { fromISODate, toISODate, formatHours, formatMoney, formatDateNo, parseDateNo } = global.Timebok.dateUtils;
@@ -115,9 +115,11 @@
       // Local style override — profile is unchanged.
       // periodMonths is derived inside aggregate() from unique pay periods
       // with data, so both periode + YTD are identical when data overlaps.
+      // tariffs (state.tariffs) lar aggregate() bruke historisk korrekte
+      // satser per dag — gamle perioder regnes med gammel tariff.
       const profileForCalc = Object.assign({}, state.profile || {}, { companyStyle: currentStyle });
-      const summary = aggregate(regs, profileForCalc, state.rates, dayReceipts);
-      const ytdSummary = aggregate(ytdRegs, profileForCalc, state.rates, ytdDayReceipts);
+      const summary = aggregate(regs, profileForCalc, state.tariffs, dayReceipts);
+      const ytdSummary = aggregate(ytdRegs, profileForCalc, state.tariffs, ytdDayReceipts);
       lastResult = { from, to, regs, dayReceipts, summary, ytdSummary, currentStyle };
       pdfBtn.disabled = false;
       xlsxBtn.disabled = false;
@@ -185,10 +187,11 @@
 
     const dayCards = sortedDates.map((d) => {
       const dayRegs = byDate.get(d) || [];
-      const dayTravel = calcDayTravel(dayRegs, state.profile, state.rates);
+      const dayRates = getRatesForDate(d);
+      const dayTravel = calcDayTravel(dayRegs, state.profile, dayRates);
       let dayHours = 0, dayWage = 0, dayReceiptsTotal = 0;
       for (const r of dayRegs) {
-        const c = calcRegistration(r, state.profile, state.rates);
+        const c = calcRegistration(r, state.profile, dayRates);
         for (const cb of c.codeBreakdown) if (cb.hours) dayHours += cb.hours;
         dayWage += c.wage;
         dayReceiptsTotal += c.receipts;
@@ -235,11 +238,21 @@
     }
     const ytd = ytdSummary || {};
     const ytdEnd = fromISODate(to);
+    // Tariff-transparens: hvilke tariffer styrte beregningene over perioden.
+    // Itererer over kun dager med data (sortedDates) så vi viser tariffene
+    // som faktisk ble brukt — ikke alle som datoperioden potensielt dekker.
+    const tariffsUsed = listTariffsForDates(sortedDates);
+    const tariffsLabel = tariffsUsed.length
+      ? tariffsUsed.map((t) => t.name || 'Uten navn').join(' + ')
+      : null;
+
     const totalsCard = el('div', { class: 'card period-totals-card' }, [
       el('div', { class: 'totals-card-head' }, [
         el('h3', { class: 'card-title' }, 'Periode-totaler'),
         el('span', { class: 'totals-style-badge', title: 'Reisegodtgjørelse-stil fra profil — endre på Profilside' }, styleLabel),
       ]),
+      tariffsLabel ? el('div', { class: 'tariff-used-note' },
+        'Beregnet med: ' + tariffsLabel) : null,
       el('div', { class: 'totals-table mt-2' }, [
         el('div', { class: 'totals-row totals-header' }, [
           el('div', { class: 'totals-row-label' }, 'Beløp i kr'),

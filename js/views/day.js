@@ -8,7 +8,7 @@
   const { el, mount, toast, openModal, closeModal, confirmModal } = global.Timebok.dom;
   const { t, getLang } = global.Timebok.i18n;
   const { db, storage } = global.Timebok.data;
-  const { get: getState } = global.Timebok.state;
+  const { get: getState, getRatesForDate } = global.Timebok.state;
   const { CODES, getCode, isTravelZoneCode, travelZoneCodeId, TRAVEL_ZONES, resolveCodeName } = global.Timebok.codes;
   const { refreshGlobal } = global.Timebok.state;
   const { calcRegistration, calcDayTravel, sumDayReceipts } = global.Timebok.calc;
@@ -160,10 +160,12 @@
 
     function renderTotals() {
       const lang = getLang();
-      const dayTravel = calcDayTravel(drafts, state.profile, state.rates);
+      // Bruk tariff-versjonen som var gyldig på datoen brukeren redigerer.
+      const dayRates = getRatesForDate(dateISO);
+      const dayTravel = calcDayTravel(drafts, state.profile, dayRates);
       let totalHours = 0, totalWage = 0;
       for (const d of drafts) {
-        const c = calcRegistration(d, state.profile, state.rates);
+        const c = calcRegistration(d, state.profile, dayRates);
         for (const cb of c.codeBreakdown) if (cb.hours) totalHours += cb.hours;
         totalWage += c.wage;
       }
@@ -680,7 +682,7 @@
       onclick: () => { draft.codes.splice(index, 1); update(); },
     }, '×');
 
-    const rates = (getState().rates) || {};
+    const rates = getRatesForDate(draft.date) || {};
     const displayName = resolveCodeName(def.id, rates);
     const nameNode = el('div', { class: 'code-name-wrap' }, [
       el('span', { class: 'code-name', title: displayName }, displayName),
@@ -894,7 +896,6 @@
   // bruks-grupper. Holdt nær picker-koden for å unngå avhengigheter.
   const PICKER_PURPOSE = {
     'ordinaere-timer':          'arbeid',
-    'ordinaere-timer-btb':      'arbeid',
     'overtid-50':               'arbeid',
     'overtid-50-org':           'arbeid',
     'overtid-100':              'arbeid',
@@ -944,7 +945,7 @@
       if (grouped[p]) grouped[p].push(c);
     }
 
-    const pickerRates = (getState().rates) || {};
+    const pickerRates = getRatesForDate(draft.date) || {};
     const list = el('div', { class: 'code-list' });
 
     const groupHeader = (label) => el('div', { class: 'code-group-header' }, label);
